@@ -1,11 +1,14 @@
 import os
 import shutil
-import pytest
 import tempfile
-import xmltodict
-
 from pathlib import Path
+
+import xmltodict
+import pytest
+
+from aiohttp.web_exceptions import HTTPNotFound
 from arteria.models.state import State
+from arteria.models.config import Config
 from arteria.models.runfolder_utils import list_runfolders, Runfolder, Instrument
 
 
@@ -43,7 +46,7 @@ def runfolder(request):
         if hasattr(request, "param"):
             run_parameters_file = request.param
             if request.param == "RunParameters_MiSeq.xml":
-                complete_marker_file ='RTAComplete.txt'
+                complete_marker_file = 'RTAComplete.txt'
         else:
             run_parameters_file = "RunParameters_NSXp.xml"
 
@@ -62,9 +65,10 @@ def test_list_runfolders(monitored_directory):
 
     assert len(runfolders) == 3
     assert all(
-        runfolder.path == Path(f"{monitored_directory}/runfolder{i}")
+        Path(runfolder.path) == Path(f"{monitored_directory}/runfolder{i}")
         for i, runfolder in enumerate(sorted(runfolders, key=lambda r: r.path))
     )
+
 
 def test_list_runfolders_filtered(monitored_directory):
     runfolder = list_runfolders(
@@ -79,19 +83,24 @@ def test_list_runfolders_filtered(monitored_directory):
 
 class TestRunfolder():
     def test_init_regular_folder(self):
-        with pytest.raises(AssertionError):
+        with pytest.raises(HTTPNotFound):
             with tempfile.TemporaryDirectory() as regular_folder:
                 Runfolder(regular_folder)
 
     def test_init_young_runfolder(self, runfolder):
+        Config.new({
+            "completed_marker_grace_minutes": 60,
+        })
         with pytest.raises(AssertionError):
-            Runfolder(runfolder.path, grace_minutes=60)
+            Runfolder(runfolder.path)
+
+        del Config._instance
 
     def test_get_state(self, runfolder):
         assert runfolder.state == State.STARTED
 
     def test_set_state(self, runfolder):
-        runfolder.state = State.DONE
+        runfolder.state = State.DONE.name
         assert runfolder.state == State.DONE
 
     def get_path(self, runfolder):
@@ -110,17 +119,19 @@ class TestRunfolder():
         assert runfolder.metadata == metadata
 
 
-class TestInstrument():
-    @pytest.mark.parametrize(
-        "runparameter_file,marker_file",
-        [
-            ("tests/resources/RunParameters_MiSeq.xml", "RTAComplete.txt"),
-            ("tests/resources/RunParameters_NS6000.xml", "CopyComplete.txt"),
-            ("tests/resources/RunParameters_NSXp.xml", "CopyComplete.txt"),
-        ]
-    )
-    def test_get_marker_file(self, runparameter_file, marker_file):
-        run_parameter_file = Path(runparameter_file)
-        run_parameters = xmltodict.parse(run_parameter_file.read_text())["RunParameters"]
-        instrument = Instrument(run_parameters)
-        assert instrument.completed_marker_file == marker_file
+# class TestInstrument(object) :
+@pytest.mark.parametrize(
+    "runparameter_file,marker_file",
+    [
+        ("tests/resources/RunParameters_MiSeq.xml", "RTAComplete.txt"),
+        ("tests/resources/RunParameters_NS6000.xml", "CopyComplete.txt"),
+        ("tests/resources/RunParameters_NSXp.xml", "CopyComplete.txt"),
+    ]
+)
+def test_get_marker_file(runparameter_file, marker_file):
+    run_parameter_file = Path(runparameter_file)
+    run_parameters = xmltodict.parse(
+        run_parameter_file.read_text(encoding="utf-8")
+    )["RunParameters"]
+    instrument = Instrument(run_parameters)
+    assert instrument.completed_marker_file == marker_file

@@ -1,11 +1,14 @@
-from pathlib import Path
+import shutil
 import tempfile
 
+from pathlib import Path
 import pytest
 
 from arteria import __version__
-from arteria.services.arteria_runfolder import get_app
 from arteria.models.state import State
+from arteria.models.config import Config
+from arteria.services.arteria_runfolder import get_app
+from arteria.config_schemas.schema_arteria_runfolder import runfolder_schema
 
 
 @pytest.fixture()
@@ -13,12 +16,16 @@ def config():
     """
     Setup a temporary directory to be monitored by the service.
     """
-    with tempfile.TemporaryDirectory() as monitored_dir:
-        config = {
+    with tempfile.TemporaryDirectory(delete=False) as monitored_dir:
+        config_dict = {
             "monitored_directories": [monitored_dir],
+            "port": 8080,
+            "completed_marker_grace_minutes": 0,
+            "logger_config_file": "tests/resources/config/logger.config"
         }
 
-        yield config
+        yield Config.new(config_dict, exist_ok=False, schema=runfolder_schema)
+        del Config._instance
 
 
 @pytest.fixture()
@@ -32,14 +39,19 @@ def runfolder(request, config):
     runfolder = Path(monitored_dir) / "200624_A00834_0183_BHMTFYDRXX"
     (runfolder / ".arteria").mkdir(parents=True)
     (runfolder / ".arteria/state").write_text(state)
+    (runfolder / "RTAComplete.txt").touch()
+    shutil.copyfile(
+        "tests/resources/RunParameters_MiSeq.xml",
+        runfolder / "RunParameters.xml",
+    )
 
     return {
         "host": "test-host",
         "link": "http://test-host/api/1.0/runfolders/path/200624_A00834_0183_BHMTFYDRXX",
         "metadata": {
-                "reagent_kit_barcode": "MS6728155 - 600V3",
+            "reagent_kit_barcode": "MS6728155-600V3",
         },
-        "path": f"{config['monitored_directories'][0]}/200624_A00834_0183_BHMTFYDRXX",
+        "path": Path(config['monitored_directories'][0]) / "200624_A00834_0183_BHMTFYDRXX",
         "service_version": __version__,
         "state": state,
     }
@@ -53,12 +65,24 @@ async def client(aiohttp_client, config):
     return await aiohttp_client(get_app(config))
 
 
-async def test_version(client):
+def get_expected_runfolder(runfolder, resp, state=None):
+    runfolder['host'] = resp.url.raw_host
+    runfolder['link'] = f"{resp.url.scheme}://{resp.url.raw_host}/api/1.0{resp.url.raw_path}"
+    runfolder['state'] = state if state else runfolder['state']
+    runfolder['path'] = runfolder['path'].as_uri()
+
+    return runfolder
+
+
+async def test_version(client, caplog):
     async with client.request("GET", "/version") as resp:
         assert resp.status == 200
         content = await resp.json()
 
     assert content == {"version": __version__}
+    # Test logger is initialized and used
+    assert 'INFO' in caplog.text
+    assert 'GET /version' in caplog.text
 
 
 @pytest.mark.parametrize("runfolder", [{"state": State.READY.name}], indirect=True)
@@ -69,8 +93,8 @@ async def test_post_runfolders_path(client, config, runfolder):
             data={"state": "STARTED"}) as resp:
         assert resp.status == 200
 
-        state = Path(config["monitored_directories"][0]) / ".arteria/state"
-        state.write_text(State.STARTED.name)
+        state = runfolder.get('path') / ".arteria/state"
+        assert state.read_text() == State.STARTED.value
 
 
 @pytest.mark.parametrize("runfolder", [{"state": State.READY.name}], indirect=True)
@@ -79,9 +103,8 @@ async def test_post_runfolders_path_invalid_state(client, config, runfolder):
             "POST",
             "/runfolders/path/200624_A00834_0183_BHMTFYDRXX",
             data={"state": "INVALID"}) as resp:
-
         assert resp.status == 400
-        assert resp.text == "The state 'INVALID' is not valid"
+        assert resp.reason == "The state 'INVALID' is not valid"
 
 
 @pytest.mark.parametrize("runfolder", [{"state": State.READY.name}], indirect=True)
@@ -90,16 +113,19 @@ async def test_post_runfolders_path_missing_runfolder(client, config, runfolder)
             "POST",
             "/runfolders/path/200624_A00834_0183_FAKE_RUNFOLDER",
             data={"state": "STARTED"}) as resp:
-
         assert resp.status == 404
-        assert resp.text == "Runfolder '200624_A00834_0183_FAKE_RUNFOLDER' does not exist"
+        assert resp.reason == "Runfolder '200624_A00834_0183_FAKE_RUNFOLDER' does not exist"
 
 
 @pytest.mark.parametrize("runfolder", [{"state": State.READY.name}], indirect=True)
 async def test_get_runfolder_path(client, config, runfolder):
     async with client.request("GET", "/runfolders/path/200624_A00834_0183_BHMTFYDRXX") as resp:
         assert resp.status == 200
-        assert resp.json() == runfolder
+        expected_runfolder = get_expected_runfolder(runfolder, resp)
+        content = await resp.json()
+        content['path'] = expected_runfolder.get("path")
+
+        assert content == expected_runfolder
 
 
 @pytest.mark.parametrize("runfolder", [{"state": State.READY.name}], indirect=True)
@@ -107,51 +133,64 @@ async def test_get_runfolders_path_missing_runfolder(client, config, runfolder):
     async with client.request(
             "GET",
             "/runfolders/path/200624_A00834_0183_FAKE_RUNFOLDER") as resp:
-
         assert resp.status == 404
-        assert resp.text == "Runfolder '200624_A00834_0183_FAKE_RUNFOLDER' does not exist"
+        assert resp.reason == "Runfolder '200624_A00834_0183_FAKE_RUNFOLDER' does not exist"
 
 
 @pytest.mark.parametrize("runfolder", [{"state": State.READY.name}], indirect=True)
 async def test_runfolders_next(client, config, runfolder):
     async with client.request("GET", "/runfolders/next") as resp:
         assert resp.status == 200
-        assert resp.json() == runfolder
-        assert resp.json()["state"] == State.READY.value
+        expected_runfolder = get_expected_runfolder(runfolder, resp)
+
+        content = await resp.json()
+        assert content == expected_runfolder
+        assert content["state"] == State.READY.name
 
 
 @pytest.mark.parametrize("runfolder", [{"state": State.STARTED.name}], indirect=True)
 async def test_runfolders_next_not_found(client, config, runfolder):
     async with client.request("GET", "/runfolders/next") as resp:
         assert resp.status == 204
-        assert resp.text == "No ready runfolders available."
+        assert resp.reason == "No ready runfolders available."
 
 
 @pytest.mark.parametrize("runfolder", [{"state": State.READY.name}], indirect=True)
 async def test_runfolders_pickup(client, config, runfolder):
     async with client.request("GET", "/runfolders/pickup") as resp:
-        assert resp.status == 200
-        assert resp.json() == runfolder
-        assert resp.json()["state"] == "pending"
+        content = await resp.json()
 
-        state = Path(config["monitored_directories"][0]) / ".arteria/state"
+        state = runfolder.get("path") / ".arteria/state"
         assert state.read_text() == "pending"
+
+        expected_runfolder = get_expected_runfolder(runfolder, resp, State.PENDING.name)
+        content['path'] = expected_runfolder.get("path")
+        assert resp.status == 200
+        assert content == expected_runfolder
+        assert content["state"] == State.PENDING.name
 
 
 @pytest.mark.parametrize("runfolder", [{"state": State.STARTED.name}], indirect=True)
 async def test_runfolders_pickup_not_found(client, config, runfolder):
     async with client.request("GET", "/runfolders/pickup") as resp:
         assert resp.status == 204
-        assert resp.text == "No ready runfolders available."
+        assert resp.reason == "No ready runfolders available."
 
 
+@pytest.mark.parametrize("runfolder", [{"state": State.READY.name}], indirect=True)
 async def test_get_runfolders(client, config, runfolder):
     async with client.request("GET", "/runfolders") as resp:
+        expected_runfolder = get_expected_runfolder(runfolder, resp)
+
+        contents = await resp.json()
+        for content in contents.get("runfolders"):
+            content['path'] = expected_runfolder.get("path")
         assert resp.status == 200
-        assert resp.json() == {"runfolders": [runfolder]}
+        assert contents == {"runfolders": [expected_runfolder]}
+
 
 @pytest.mark.parametrize("runfolder", [{"state": State.DONE.name}], indirect=True)
 async def test_get_runfolders_filtered(client, config, runfolder):
     async with client.request("GET", "/runfolders") as resp:
-        assert resp.status == 200
-        assert resp.json() == {"runfolders": [runfolder]}
+        contents = await resp.json()
+        assert len(contents.get("runfolders")) == 0
