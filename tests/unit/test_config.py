@@ -1,10 +1,7 @@
-import yaml
 import pytest
-import tempfile
-import jsonschema
+from jsonschema.exceptions import ValidationError
 
 from arteria.models.config import Config
-from jsonschema.exceptions import ValidationError
 from arteria.config_schemas.schema_arteria_runfolder import runfolder_schema
 
 
@@ -31,7 +28,7 @@ def test_config_init(config):
     """
     Tests Config() always returns the same object in memory
     """
-    assert Config() == config 
+    assert Config() == config
 
 
 def test_config_exist_ok(config):
@@ -88,10 +85,12 @@ def test_default_config_from_scratch():
 
 
 def test_default_config_from_existing_config(config, config_dict):
+    """Config class gives same instance of the config multiple times, if not overwritten
+    by calling the new() method with exist_ok=True """
     defaults = {"default_variable": 1, "port": 0}
     config = Config(defaults)
 
-    expected_dict = {k: v for k, v in defaults.items()}
+    expected_dict = dict(defaults.items())
     expected_dict.update(config_dict)
 
     assert config.to_dict() == expected_dict

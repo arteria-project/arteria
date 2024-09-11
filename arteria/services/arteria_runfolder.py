@@ -3,9 +3,8 @@ import argparse
 import logging.config
 
 from aiohttp import web
-
 from arteria.models.config import Config
-from arteria.handlers.base import base_routes as routes
+from arteria.handlers.arteria_runfolder_handlers import routes
 from arteria.config_schemas.schema_arteria_runfolder import runfolder_schema
 
 
@@ -36,4 +35,4 @@ def main():
         config_dict = yaml.safe_load(config_file.read())
 
     app = get_app(config_dict)
-    web.run_app(app, port=config.get("port"))
+    web.run_app(app, port=config_dict.get("port"))

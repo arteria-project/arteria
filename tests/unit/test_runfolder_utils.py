@@ -1,14 +1,14 @@
-from pathlib import Path
 import os
 import shutil
 import tempfile
-import xmltodict
+from pathlib import Path
 
+import xmltodict
 import pytest
 
-from arteria.models.runfolder_utils import list_runfolders, Runfolder, Instrument
 from arteria.models.state import State
 from arteria.models.config import Config
+from arteria.models.runfolder_utils import list_runfolders, Runfolder, Instrument
 
 
 @pytest.fixture()
@@ -38,17 +38,19 @@ def runfolder(request):
     with tempfile.TemporaryDirectory(suffix="RUNFOLDER") as runfolder_path:
         runfolder_path = Path(runfolder_path)
 
-        (runfolder_path / "CopyComplete.txt").touch()
-        (runfolder_path / "RTAComplete.txt").touch()
+        complete_marker_file = 'CopyComplete.txt'
 
         (runfolder_path / ".arteria").mkdir()
         (runfolder_path / ".arteria/state").write_text(State.STARTED.value)
 
-        run_parameters_file = (
-            request.param
-            if hasattr(request, "param") else
-            "RunParameters_NSXp.xml"
-        )
+        if hasattr(request, "param"):
+            run_parameters_file = request.param
+            if request.param == "RunParameters_MiSeq.xml":
+                complete_marker_file = 'RTAComplete.txt'
+        else:
+            run_parameters_file = "RunParameters_NSXp.xml"
+
+        (runfolder_path / complete_marker_file).touch()
         shutil.copyfile(
             f"tests/resources/{run_parameters_file}",
             Path(runfolder_path) / "RunParameters.xml",
@@ -59,13 +61,24 @@ def runfolder(request):
 
 def test_list_runfolders(monitored_directory):
     assert len(os.listdir(monitored_directory)) == 4
+
     runfolders = list_runfolders([monitored_directory])
 
     assert len(runfolders) == 3
+
     assert all(
-        runfolder.path == Path(f"{monitored_directory}/runfolder{i}")
+        Path(runfolder.path) == Path(f"{monitored_directory}/runfolder{i}")
         for i, runfolder in enumerate(sorted(runfolders, key=lambda r: r.path))
+        if runfolder != "regular_folder"
     )
+
+
+def test_list_runfolders_empty_monitored_dir():
+    with tempfile.TemporaryDirectory() as monitored_dir:
+        runfolders = list_runfolders([monitored_dir])
+
+        assert len(runfolders) == 0
+
 
 def test_list_runfolders_filtered(monitored_directory):
     runfolder = list_runfolders(
@@ -82,7 +95,7 @@ class TestRunfolder():
     def test_init_regular_folder(self):
         with pytest.raises(AssertionError):
             with tempfile.TemporaryDirectory() as regular_folder:
-                Runfolder(regular_folder)
+                Runfolder(Path(regular_folder))
 
     def test_init_young_runfolder(self, runfolder):
         Config.new({
@@ -117,17 +130,18 @@ class TestRunfolder():
         assert runfolder.metadata == metadata
 
 
-class TestInstrument():
-    @pytest.mark.parametrize(
-        "runparameter_file,marker_file",
-        [
-            ("tests/resources/RunParameters_MiSeq.xml", "RTAComplete.txt"),
-            ("tests/resources/RunParameters_NS6000.xml", "CopyComplete.txt"),
-            ("tests/resources/RunParameters_NSXp.xml", "CopyComplete.txt"),
-        ]
-    )
-    def test_get_marker_file(self, runparameter_file, marker_file):
-        run_parameter_file = Path(runparameter_file)
-        run_parameters = xmltodict.parse(run_parameter_file.read_text())["RunParameters"]
-        instrument = Instrument(run_parameters)
-        assert instrument.completed_marker_file == marker_file
+@pytest.mark.parametrize(
+    "runparameter_file,marker_file",
+    [
+        ("tests/resources/RunParameters_MiSeq.xml", "RTAComplete.txt"),
+        ("tests/resources/RunParameters_NS6000.xml", "CopyComplete.txt"),
+        ("tests/resources/RunParameters_NSXp.xml", "CopyComplete.txt"),
+    ]
+)
+def test_get_marker_file(runparameter_file, marker_file):
+    run_parameter_file = Path(runparameter_file)
+    run_parameters = xmltodict.parse(
+        run_parameter_file.read_text(encoding="utf-8")
+    )["RunParameters"]
+    instrument = Instrument(run_parameters)
+    assert instrument.completed_marker_file == marker_file

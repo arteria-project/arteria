@@ -1,11 +1,8 @@
 """
 Base routes that should be included in all services
 """
-
 from aiohttp import web
-
 from arteria import __version__
-
 
 base_routes = web.RouteTableDef()
 

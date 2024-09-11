@@ -22,17 +22,30 @@ def list_runfolders(monitored_directories, filter_key=lambda r: True):
     runfolders when no state filter is given.
     """
     runfolders = []
-    for monitored_directory in monitored_directories:
-        monitored_dir_path = Path(monitored_directory)
-        for subdir in monitored_dir_path.iterdir():
-            try:
-                if filter_key(runfolder := Runfolder(monitored_dir_path / subdir)):
-                    runfolders.append(runfolder)
-            except AssertionError as e:
-                if e == f"File [Rr]unParameters.xml not found in runfolder {subdir}":
-                    continue
+    monitored_runfolders_paths = get_monitored_subdirs(monitored_directories)
+    for monitored_runfolders_path in monitored_runfolders_paths:
+        try:
+            if filter_key(runfolder := Runfolder(monitored_runfolders_path)):
+                runfolders.append(runfolder)
+        except AssertionError as e:
+            if (
+                str(e) != (
+                    "File [Rr]unParameters.xml not found in runfolder "
+                    f"{monitored_runfolders_path}"
+                )
+            ):
+                raise
 
     return runfolders
+
+
+def get_monitored_subdirs(monitored_directories):
+    return [
+        Path(monitored_directory) / subdir
+        for monitored_directory in monitored_directories
+        for subdir in Path(monitored_directory).iterdir()
+    ]
+
 
 class Runfolder():
     """
@@ -40,8 +53,10 @@ class Runfolder():
     """
     def __init__(self, path):
         self.config = Config(DEFAULT_CONFIG)
-        self.path = Path(path)
-        assert self.path.is_dir()
+        self.path = path
+
+        assert self.path.is_dir(), f"Runfolder '{path.name}' does not exist"
+
         try:
             run_parameter_file = next(
                 path
@@ -53,10 +68,13 @@ class Runfolder():
             )
             self.run_parameters = xmltodict.parse(run_parameter_file.read_text())["RunParameters"]
         except StopIteration as exc:
-            raise AssertionError(f"File [Rr]unParameters.xml not found in runfolder {path}") from exc
+            raise AssertionError(
+                f"File [Rr]unParameters.xml not found in runfolder {path}"
+            ) from exc
 
         marker_file_name = Instrument(self.run_parameters).completed_marker_file
         marker_file = (self.path / marker_file_name)
+
         assert (
             marker_file.exists()
             and (
@@ -115,6 +133,13 @@ class Runfolder():
                 log.debug("Library tube barcode not found")
 
         return metadata
+
+    def to_dict(self):
+        return {
+            "metadata": self.metadata,
+            "path": self.path,
+            "state": self.state.name
+        }
 
 
 class Instrument:
