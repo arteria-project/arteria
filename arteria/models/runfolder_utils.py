@@ -27,14 +27,8 @@ def list_runfolders(monitored_directories, filter_key=lambda r: True):
         try:
             if filter_key(runfolder := Runfolder(monitored_runfolders_path)):
                 runfolders.append(runfolder)
-        except AssertionError as e:
-            if (
-                str(e) != (
-                    "File [Rr]unParameters.xml not found in runfolder "
-                    f"{monitored_runfolders_path}"
-                )
-            ):
-                raise
+        except AssertionError:
+            log.exception(f"Ignoring {monitored_runfolders_path}")
 
     return runfolders
 
