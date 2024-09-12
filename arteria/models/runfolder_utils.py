@@ -107,9 +107,6 @@ class Runfolder():
             metadata: a dict containing up to two keys: "reagent_kit_barcode"
             and "library_tube_barcode"
         """
-        if not self.run_parameters:
-            log.warning(f"No metadata found for runfolder {self.path}")
-
         metadata = {}
 
         try:
@@ -131,6 +128,9 @@ class Runfolder():
                     )
             except (KeyError, StopIteration):
                 log.debug("Library tube barcode not found")
+
+        if not metadata:
+            log.warning(f"No metadata found for runfolder {self.path}")
 
         return metadata
 

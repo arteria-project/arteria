@@ -1,4 +1,5 @@
 import os
+import re
 import shutil
 import tempfile
 from pathlib import Path
@@ -123,11 +124,17 @@ class TestRunfolder():
             ("RunParameters_MiSeq.xml", {"reagent_kit_barcode": "MS6728155-600V3"}),
             ("RunParameters_NS6000.xml", {"library_tube_barcode": "NV0217945-LIB"}),
             ("RunParameters_NSXp.xml", {"library_tube_barcode": "LC1025031-LC1"}),
+            ("RunParameters_corrupt.xml", {}),
         ],
         indirect=["runfolder"],
     )
-    def test_get_metadata(self, runfolder, metadata):
+    def test_get_metadata(self, runfolder, metadata, caplog):
         assert runfolder.metadata == metadata
+        if not metadata:
+            assert re.search(
+                r"WARNING .*:\d+ No metadata found for runfolder (\/\w+)+",
+                caplog.text
+            )
 
 
 @pytest.mark.parametrize(
