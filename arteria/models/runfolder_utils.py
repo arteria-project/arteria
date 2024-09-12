@@ -208,10 +208,10 @@ class Instrument:
         if instrument_id is None:
             try:
                 instrument_id = next(
-                    self.run_parameters.get(key)
+                    self.run_parameters[key]
                     for key in self.RUNPARAMETERS_INSTRUMENT_ID_KEYS
-                    if key in self.run_parameters.keys()
+                    if key in self.run_parameters
                 )
             except StopIteration as e:
-                raise TypeError(f"{self.instrument} is not recognized") from e
+                raise TypeError("Instrument not recognized") from e
         return instrument_id

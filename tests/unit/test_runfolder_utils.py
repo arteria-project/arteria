@@ -152,3 +152,9 @@ def test_get_marker_file(runparameter_file, marker_file):
     )["RunParameters"]
     instrument = Instrument(run_parameters)
     assert instrument.completed_marker_file == marker_file
+
+
+def test_get_marker_unknown_instrument():
+    fake_run_parameters = {"fake_id": "12345"}
+    with pytest.raises(TypeError):
+        _ = Instrument(fake_run_parameters).completed_marker_file
