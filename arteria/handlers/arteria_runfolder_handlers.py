@@ -76,26 +76,22 @@ async def get_next_runfolder(request):
     Finds unprocessed runfolder (state=ready) and then
     returns some information about this runfolder.
     """
-    try:
-        runfolders = list_runfolders(
-            Config()['monitored_directories'],
-            filter_key=lambda r: r.state == State.READY
+    runfolders = list_runfolders(
+        Config()['monitored_directories'],
+        filter_key=lambda r: r.state == State.READY
+    )
+
+    if len(runfolders) > 0:
+        runfolder_dict = serialize_runfolder_path(runfolders[0], request)
+
+        return web.json_response(
+            data=runfolder_dict,
+            status=200
         )
-
-        if len(runfolders) > 0:
-            runfolder_dict = serialize_runfolder_path(runfolders[0], request)
-
-            return web.json_response(
-                data=runfolder_dict,
-                status=200
-            )
-        else:
-            raise web.HTTPNoContent(
-                reason="No ready runfolder found."
-            )
-    except AssertionError as exc:
-        log.exception(exc)
-        raise web.HTTPNotFound(reason=exc) from exc
+    else:
+        raise web.HTTPNoContent(
+            reason="No ready runfolder found."
+        )
 
 
 @routes.get("/runfolders/pickup")
@@ -103,26 +99,22 @@ async def get_pickup_runfolder(request):
     """
     Used to start processing runfolders and also sets the runfolder to PENDING state.
     """
-    try:
-        runfolders = list_runfolders(
-            Config()['monitored_directories'],
-            filter_key=lambda r: r.state == State.READY
-        )
+    runfolders = list_runfolders(
+        Config()['monitored_directories'],
+        filter_key=lambda r: r.state == State.READY
+    )
 
-        if runfolders:
-            runfolders[0].state = State.PENDING
-            runfolder_dict = serialize_runfolder_path(runfolders[0], request)
-            return web.json_response(
-                data=runfolder_dict,
-                status=200
-            )
-        else:
-            raise web.HTTPNoContent(
-                reason="No ready runfolders available."
-            )
-    except AssertionError as exc:
-        log.exception(exc)
-        raise web.HTTPNotFound(reason=exc) from exc
+    if runfolders:
+        runfolders[0].state = State.PENDING
+        runfolder_dict = serialize_runfolder_path(runfolders[0], request)
+        return web.json_response(
+            data=runfolder_dict,
+            status=200
+        )
+    else:
+        raise web.HTTPNoContent(
+            reason="No ready runfolders available."
+        )
 
 
 @routes.get("/runfolders")
@@ -132,24 +124,20 @@ async def get_all_runfolders(request):
     match the state specified (or all runfolders when state
     is not specified)
     """
-    try:
-        runfolders = list_runfolders(
-            Config()['monitored_directories'],
-            filter_key=lambda r: r.state == State.READY
-        )
+    runfolders = list_runfolders(
+        Config()['monitored_directories'],
+        filter_key=lambda r: r.state == State.READY
+    )
 
-        runfolders = [
-            serialize_runfolder_path(runfolder, request)
-            for runfolder in runfolders
-        ]
+    runfolders = [
+        serialize_runfolder_path(runfolder, request)
+        for runfolder in runfolders
+    ]
 
-        return web.json_response(
-            data={"runfolders": runfolders},
-            status=200
-        )
-    except AssertionError as exc:
-        log.exception(exc)
-        raise web.HTTPNotFound(reason=exc) from exc
+    return web.json_response(
+        data={"runfolders": runfolders},
+        status=200
+    )
 
 
 def get_host_link(request, runfolder_path, ):
