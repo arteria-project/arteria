@@ -1,4 +1,3 @@
-import os
 import re
 import shutil
 import tempfile
@@ -15,10 +14,11 @@ from arteria.models.runfolder_utils import list_runfolders, Runfolder, Instrumen
 @pytest.fixture()
 def monitored_directory():
     with tempfile.TemporaryDirectory() as monitored_dir:
-        for i in range(3):
+        for i in range(4):
             runfolder_path = Path(monitored_dir) / f"runfolder{i}"
             runfolder_path.mkdir()
-            (runfolder_path / "CopyComplete.txt").touch()
+            if i < 3:
+                (runfolder_path / "CopyComplete.txt").touch()
 
             if i == 0:
                 (runfolder_path / ".arteria").mkdir()
@@ -61,7 +61,7 @@ def runfolder(request):
 
 
 def test_list_runfolders(monitored_directory):
-    assert len(os.listdir(monitored_directory)) == 4
+    assert len(list(Path(monitored_directory).iterdir())) == 5
 
     runfolders = list_runfolders([monitored_directory])
 
