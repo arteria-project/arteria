@@ -1,4 +1,4 @@
-import os
+import re
 import shutil
 import tempfile
 from pathlib import Path
@@ -14,10 +14,11 @@ from arteria.models.runfolder_utils import list_runfolders, Runfolder, Instrumen
 @pytest.fixture()
 def monitored_directory():
     with tempfile.TemporaryDirectory() as monitored_dir:
-        for i in range(3):
+        for i in range(4):
             runfolder_path = Path(monitored_dir) / f"runfolder{i}"
             runfolder_path.mkdir()
-            (runfolder_path / "CopyComplete.txt").touch()
+            if i < 3:
+                (runfolder_path / "CopyComplete.txt").touch()
 
             if i == 0:
                 (runfolder_path / ".arteria").mkdir()
@@ -60,7 +61,7 @@ def runfolder(request):
 
 
 def test_list_runfolders(monitored_directory):
-    assert len(os.listdir(monitored_directory)) == 4
+    assert len(list(Path(monitored_directory).iterdir())) == 5
 
     runfolders = list_runfolders([monitored_directory])
 
@@ -123,11 +124,17 @@ class TestRunfolder():
             ("RunParameters_MiSeq.xml", {"reagent_kit_barcode": "MS6728155-600V3"}),
             ("RunParameters_NS6000.xml", {"library_tube_barcode": "NV0217945-LIB"}),
             ("RunParameters_NSXp.xml", {"library_tube_barcode": "LC1025031-LC1"}),
+            ("RunParameters_corrupt.xml", {}),
         ],
         indirect=["runfolder"],
     )
-    def test_get_metadata(self, runfolder, metadata):
+    def test_get_metadata(self, runfolder, metadata, caplog):
         assert runfolder.metadata == metadata
+        if not metadata:
+            assert re.search(
+                r"WARNING .*:\d+ No metadata found for runfolder (\/\w+)+",
+                caplog.text
+            )
 
 
 @pytest.mark.parametrize(
@@ -145,3 +152,9 @@ def test_get_marker_file(runparameter_file, marker_file):
     )["RunParameters"]
     instrument = Instrument(run_parameters)
     assert instrument.completed_marker_file == marker_file
+
+
+def test_get_marker_unknown_instrument():
+    fake_run_parameters = {"fake_id": "12345"}
+    with pytest.raises(TypeError):
+        _ = Instrument(fake_run_parameters).completed_marker_file

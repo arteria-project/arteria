@@ -27,14 +27,8 @@ def list_runfolders(monitored_directories, filter_key=lambda r: True):
         try:
             if filter_key(runfolder := Runfolder(monitored_runfolders_path)):
                 runfolders.append(runfolder)
-        except AssertionError as e:
-            if (
-                str(e) != (
-                    "File [Rr]unParameters.xml not found in runfolder "
-                    f"{monitored_runfolders_path}"
-                )
-            ):
-                raise
+        except AssertionError:
+            log.exception(f"Ignoring {monitored_runfolders_path}")
 
     return runfolders
 
@@ -107,9 +101,6 @@ class Runfolder():
             metadata: a dict containing up to two keys: "reagent_kit_barcode"
             and "library_tube_barcode"
         """
-        if not self.run_parameters:
-            log.warning(f"No metadata found for runfolder {self.path}")
-
         metadata = {}
 
         try:
@@ -131,6 +122,9 @@ class Runfolder():
                     )
             except (KeyError, StopIteration):
                 log.debug("Library tube barcode not found")
+
+        if not metadata:
+            log.warning(f"No metadata found for runfolder {self.path}")
 
         return metadata
 
@@ -208,10 +202,10 @@ class Instrument:
         if instrument_id is None:
             try:
                 instrument_id = next(
-                    self.run_parameters.get(key)
+                    self.run_parameters[key]
                     for key in self.RUNPARAMETERS_INSTRUMENT_ID_KEYS
-                    if key in self.run_parameters.keys()
+                    if key in self.run_parameters
                 )
             except StopIteration as e:
-                raise TypeError(f"{self.instrument} is not recognized") from e
+                raise TypeError("Instrument not recognized") from e
         return instrument_id
