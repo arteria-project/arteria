@@ -9,6 +9,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      - name: Check for CRLF line endings
+        run: >
+          ! find . -type f -name "*.py"
+          | grep -v '\.git/'
+          | xargs file
+          | grep CRLF
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
