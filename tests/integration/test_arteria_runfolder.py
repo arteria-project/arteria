@@ -94,21 +94,21 @@ def get_expected_runfolder(runfolder, resp, state=None):
 
 
 async def test_version(client, caplog):
-    async with client.request("GET", "/version") as resp:
+    async with client.request("GET", "/api/1.0/version") as resp:
         assert resp.status == 200
         content = await resp.json()
         assert content == {"version": __version__}
 
         # Test logger is initialized and used
         assert 'INFO' in caplog.text
-        assert 'GET /version' in caplog.text
+        assert 'GET /api/1.0/version' in caplog.text
 
 
 @pytest.mark.parametrize("runfolder", [{"state": State.READY.name}], indirect=True)
 async def test_post_runfolders_path(client, config, runfolder):
     async with client.request(
         "POST",
-        f"/runfolders/path/{runfolder['path']}",
+        f"/api/1.0/runfolders/path/{runfolder['path']}",
         data={"state": "STARTED"}
     ) as resp:
         assert resp.status == 200
@@ -128,7 +128,7 @@ async def test_post_runfolders_path(client, config, runfolder):
 async def test_post_runfolders_path_invalid_state(client, config, runfolder):
     async with client.request(
             "POST",
-            f"/runfolders/path/{runfolder['path']}",
+            f"/api/1.0/runfolders/path/{runfolder['path']}",
             data={"state": "INVALID"}) as resp:
         assert resp.status == 400
         assert resp.reason == "The state 'INVALID' is not valid"
@@ -139,7 +139,7 @@ async def test_post_runfolders_path_missing_runfolder(client, config, runfolder)
     async with client.request(
             "POST",
             (
-                '/runfolders/path/'
+                '/api/1.0/runfolders/path/'
                 f'{
                     Path(config["monitored_directories"][1]) /
                     "200624_A00834_0183_FAKE_RUNFOLDER"
@@ -156,7 +156,7 @@ async def test_post_runfolders_path_missing_runfolder(client, config, runfolder)
 async def test_post_runfolder_unmonitored_dir(client, config, runfolder):
     runfolder_name = runfolder["path"].name
     async with client.request(
-        "POST", f"/runfolders/path/tmp/unmonitored_path/{runfolder_name}",
+        "POST", f"/api/1.0/runfolders/path/tmp/unmonitored_path/{runfolder_name}",
         data={"state": "STARTED"},
     ) as resp:
         assert resp.status == 400
@@ -164,7 +164,7 @@ async def test_post_runfolder_unmonitored_dir(client, config, runfolder):
 
 @pytest.mark.parametrize("runfolder", [{"state": State.READY.name}], indirect=True)
 async def test_get_runfolder_path(client, config, runfolder):
-    async with client.request("GET", f"/runfolders/path/{runfolder['path']}") as resp:
+    async with client.request("GET", f"/api/1.0/runfolders/path/{runfolder['path']}") as resp:
         assert resp.status == 200
         expected_runfolder = get_expected_runfolder(runfolder, resp)
         content = await resp.json()
@@ -177,7 +177,7 @@ async def test_get_runfolder_path(client, config, runfolder):
 async def test_get_runfolder_unmonitored_dir(client, config, runfolder):
     runfolder_name = runfolder["path"].name
     async with client.request(
-        "GET", f"/runfolders/path/tmp/unmonitored_path/{runfolder_name}"
+        "GET", f"/api/1.0/runfolders/path/tmp/unmonitored_path/{runfolder_name}"
     ) as resp:
         assert resp.status == 400
 
@@ -187,7 +187,7 @@ async def test_get_runfolders_path_missing_runfolder(client, config, runfolder):
     async with client.request(
             "GET",
             (
-                '/runfolders/path/'
+                '/api/1.0/runfolders/path/'
                 f'{
                     Path(config["monitored_directories"][1]) /
                     "200624_A00834_0183_FAKE_RUNFOLDER"
@@ -200,7 +200,7 @@ async def test_get_runfolders_path_missing_runfolder(client, config, runfolder):
 
 @pytest.mark.parametrize("runfolder", [{"state": State.READY.name}], indirect=True)
 async def test_runfolders_next(client, config, runfolder):
-    async with client.request("GET", "/runfolders/next") as resp:
+    async with client.request("GET", "/api/1.0/runfolders/next") as resp:
         assert resp.status == 200
         expected_runfolder = get_expected_runfolder(runfolder, resp)
 
@@ -211,14 +211,14 @@ async def test_runfolders_next(client, config, runfolder):
 
 @pytest.mark.parametrize("runfolder", [{"state": State.STARTED.name}], indirect=True)
 async def test_runfolders_next_not_found(client, config, runfolder):
-    async with client.request("GET", "/runfolders/next") as resp:
+    async with client.request("GET", "/api/1.0/runfolders/next") as resp:
         assert resp.status == 204
         assert resp.reason == "No ready runfolder found."
 
 
 @pytest.mark.parametrize("runfolder", [{"state": State.READY.name}], indirect=True)
 async def test_runfolders_pickup(client, config, runfolder):
-    async with client.request("GET", "/runfolders/pickup") as resp:
+    async with client.request("GET", "/api/1.0/runfolders/pickup") as resp:
         content = await resp.json()
 
         state = runfolder.get("path") / ".arteria/state"
@@ -233,14 +233,14 @@ async def test_runfolders_pickup(client, config, runfolder):
 
 @pytest.mark.parametrize("runfolder", [{"state": State.STARTED.name}], indirect=True)
 async def test_runfolders_pickup_not_found(client, config, runfolder):
-    async with client.request("GET", "/runfolders/pickup") as resp:
+    async with client.request("GET", "/api/1.0/runfolders/pickup") as resp:
         assert resp.status == 204
         assert resp.reason == "No ready runfolders available."
 
 
 @pytest.mark.parametrize("runfolder", [{"state": State.READY.name}], indirect=True)
 async def test_get_runfolders(client, config, runfolder):
-    async with client.request("GET", "/runfolders") as resp:
+    async with client.request("GET", "/api/1.0/runfolders") as resp:
         expected_runfolder = get_expected_runfolder(runfolder, resp)
 
         contents = await resp.json()
@@ -252,6 +252,6 @@ async def test_get_runfolders(client, config, runfolder):
 
 @pytest.mark.parametrize("runfolder", [{"state": State.DONE.name}], indirect=True)
 async def test_get_runfolders_filtered(client, config, runfolder):
-    async with client.request("GET", "/runfolders") as resp:
+    async with client.request("GET", "/api/1.0/runfolders") as resp:
         contents = await resp.json()
         assert len(contents.get("runfolders")) == 0
