@@ -12,7 +12,7 @@ routes = base_routes
 log = logging.getLogger(__name__)
 
 
-@routes.post("/runfolders/path/{runfolder:.*}")
+@routes.post("/api/1.0/runfolders/path/{runfolder:.*}")
 async def post_runfolders(request):
     """
     When this is called with payload {"state": "STARTED"},
@@ -44,7 +44,7 @@ async def post_runfolders(request):
     return web.Response(status=200)
 
 
-@routes.get("/runfolders/path/{runfolder:.*}")
+@routes.get("/api/1.0/runfolders/path/{runfolder:.*}")
 async def get_runfolders(request):
     """
     Returns some information about the runfolder as json
@@ -70,7 +70,7 @@ async def get_runfolders(request):
     )
 
 
-@routes.get("/runfolders/next")
+@routes.get("/api/1.0/runfolders/next")
 async def get_next_runfolder(request):
     """
     Finds unprocessed runfolder (state=ready) and then
@@ -94,7 +94,7 @@ async def get_next_runfolder(request):
         )
 
 
-@routes.get("/runfolders/pickup")
+@routes.get("/api/1.0/runfolders/pickup")
 async def get_pickup_runfolder(request):
     """
     Used to start processing runfolders and also sets the runfolder to PENDING state.
@@ -117,7 +117,7 @@ async def get_pickup_runfolder(request):
         )
 
 
-@routes.get("/runfolders")
+@routes.get("/api/1.0/runfolders")
 async def get_all_runfolders(request):
     """
     Returns information about all the runfolders that

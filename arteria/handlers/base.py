@@ -7,7 +7,7 @@ from arteria import __version__
 base_routes = web.RouteTableDef()
 
 
-@base_routes.get("/version")
+@base_routes.get("/api/1.0/version")
 async def version(request):
     """
     Returns service version in use
