@@ -2,13 +2,13 @@ import shutil
 import tempfile
 from pathlib import Path
 
+import re
 import pytest
 
 from arteria import __version__
 from arteria.models.state import State
 from arteria.models.config import Config
 from arteria.services.arteria_runfolder import get_app
-from arteria.handlers.arteria_runfolder_handlers import routes
 
 
 @pytest.fixture()
@@ -23,9 +23,9 @@ def config():
     ):
         config_dict = {
             "monitored_directories": [
-               f"/{monitored_dir1}",
-               f"/{monitored_dir2}",
-               f"/{monitored_dir3}"
+               monitored_dir1,
+               monitored_dir2,
+               monitored_dir3
             ],
             "port": 8080,
             "completed_marker_grace_minutes": 0,
@@ -107,10 +107,12 @@ async def test_version(client, caplog):
 
 @pytest.mark.parametrize("runfolder", [{"state": State.READY.name}], indirect=True)
 async def test_post_runfolders_path(client, config, runfolder):
+    url = f"/api/1.0/runfolders/path{runfolder['path']}"
+    # url should not have two '/' after combining the static and dynamic parts
+    assert not re.search(r'runfolders/path//', url)
+
     async with client.request(
-        "POST",
-        f"/api/1.0/runfolders/path{runfolder['path']}",
-        data={"state": "STARTED"}
+        "POST", url, data={"state": "STARTED"}
     ) as resp:
         assert resp.status == 200
 
@@ -165,7 +167,11 @@ async def test_post_runfolder_unmonitored_dir(client, config, runfolder):
 
 @pytest.mark.parametrize("runfolder", [{"state": State.READY.name}], indirect=True)
 async def test_get_runfolder_path(client, config, runfolder):
-    async with client.request("GET", f"/api/1.0/runfolders/path{runfolder['path']}") as resp:
+    url = f"/api/1.0/runfolders/path{runfolder['path']}"
+    # url should not have two '/' after combining the static and dynamic parts
+    assert not re.search(r'runfolders/path//', url)
+
+    async with client.request("GET", url) as resp:
         assert resp.status == 200
         expected_runfolder = get_expected_runfolder(runfolder, resp)
         content = await resp.json()
@@ -201,14 +207,6 @@ async def test_get_runfolders_path_missing_runfolder(client, config, runfolder):
     ) as resp:
         assert resp.status == 404
         assert resp.reason == "Runfolder '200624_A00834_0183_FAKE_RUNFOLDER' does not exist"
-
-
-def test_route_param_format():
-    correct_route = "/api/1.0/runfolders/path{runfolder:/.*}"
-
-    for route in routes._items:     # pylint: disable=protected-access
-        if '{runfolder:' in route.path:
-            assert route.path == correct_route
 
 
 @pytest.mark.parametrize("runfolder", [{"state": State.READY.name}], indirect=True)
