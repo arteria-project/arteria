@@ -12,7 +12,7 @@ routes = base_routes
 log = logging.getLogger(__name__)
 
 
-@routes.post("/api/1.0/runfolders/path/{runfolder:.*}")
+@routes.post("/api/1.0/runfolders/path{runfolder:/.*}")
 async def post_runfolders(request):
     """
     When this is called with payload {"state": "STARTED"},
@@ -44,7 +44,7 @@ async def post_runfolders(request):
     return web.Response(status=200)
 
 
-@routes.get("/api/1.0/runfolders/path/{runfolder:.*}")
+@routes.get("/api/1.0/runfolders/path{runfolder:/.*}")
 async def get_runfolders(request):
     """
     Returns some information about the runfolder as json
