@@ -112,7 +112,7 @@ async def test_post_runfolders_path(client, config, runfolder):
     assert not re.search(r'runfolders/path//', url)
 
     async with client.request(
-        "POST", url, data={"state": "STARTED"}
+        "POST", url, json={"state": "STARTED"}
     ) as resp:
         assert resp.status == 200
 
@@ -132,7 +132,7 @@ async def test_post_runfolders_path_invalid_state(client, config, runfolder):
     async with client.request(
             "POST",
             f"/api/1.0/runfolders/path{runfolder['path']}",
-            data={"state": "INVALID"}) as resp:
+            json={"state": "INVALID"}) as resp:
         assert resp.status == 400
         assert resp.reason == "The state 'INVALID' is not valid"
 
@@ -148,7 +148,7 @@ async def test_post_runfolders_path_missing_runfolder(client, config, runfolder)
                     "200624_A00834_0183_FAKE_RUNFOLDER"
                 }'
             ),
-            data={"state": "STARTED"}
+            json={"state": "STARTED"}
     ) as resp:
 
         assert resp.status == 404
@@ -160,7 +160,7 @@ async def test_post_runfolder_unmonitored_dir(client, config, runfolder):
     runfolder_name = runfolder["path"].name
     async with client.request(
         "POST", f"/api/1.0/runfolders/path/tmp/unmonitored_path/{runfolder_name}",
-        data={"state": "STARTED"},
+        json={"state": "STARTED"},
     ) as resp:
         assert resp.status == 400
 

@@ -19,7 +19,7 @@ async def post_runfolders(request):
     the state of the runfolder is set to STARTED
     """
 
-    data = await request.post()
+    data = await request.json()
     runfolder_path = Path(request.match_info['runfolder'])
 
     if not any([
