@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "arteria"
-version = "0.1.0"
+version = "1.0.0"
 description = ""
 authors = ["SNP&SEQ Technology Platform <dataoperations@medsci.uu.se>"]
 license = "LICENCE"
