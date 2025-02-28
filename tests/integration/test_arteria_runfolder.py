@@ -112,7 +112,7 @@ async def test_post_runfolders_path(client, config, runfolder):
     assert not re.search(r'runfolders/path//', url)
 
     async with client.request(
-        "POST", url, json={"state": "STARTED"}
+        "POST", url, json={"state": "started"}
     ) as resp:
         assert resp.status == 200
 
