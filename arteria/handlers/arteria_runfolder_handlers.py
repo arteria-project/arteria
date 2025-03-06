@@ -15,8 +15,8 @@ log = logging.getLogger(__name__)
 @routes.post("/api/1.0/runfolders/path{runfolder:/.*}")
 async def post_runfolders(request):
     """
-    When this is called with payload {"state": "STARTED"},
-    the state of the runfolder is set to STARTED
+    When this is called with payload {"state": "started"},
+    the state of the runfolder is set to started
     """
 
     data = await request.json()

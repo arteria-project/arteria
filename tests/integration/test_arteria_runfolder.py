@@ -148,7 +148,7 @@ async def test_post_runfolders_path_missing_runfolder(client, config, runfolder)
                     "200624_A00834_0183_FAKE_RUNFOLDER"
                 }'
             ),
-            json={"state": "STARTED"}
+            json={"state": "started"}
     ) as resp:
 
         assert resp.status == 404
@@ -160,7 +160,7 @@ async def test_post_runfolder_unmonitored_dir(client, config, runfolder):
     runfolder_name = runfolder["path"].name
     async with client.request(
         "POST", f"/api/1.0/runfolders/path/tmp/unmonitored_path/{runfolder_name}",
-        json={"state": "STARTED"},
+        json={"state": "started"},
     ) as resp:
         assert resp.status == 400
 
