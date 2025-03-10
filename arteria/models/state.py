@@ -9,3 +9,6 @@ class State(Enum):
     DONE = "done"
     ERROR = "error"
     CANCELLED = "cancelled"
+
+    def get_state(state):
+        return State[state.upper()]

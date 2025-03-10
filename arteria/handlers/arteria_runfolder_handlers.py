@@ -35,9 +35,9 @@ async def post_runfolders(request):
         log.exception(exc)
         raise web.HTTPNotFound(reason=exc) from exc
 
-    state = (data["state"]).upper()
+    state = (data["state"])
     try:
-        runfolder.state = State[state]
+        runfolder.state = State.get_state(state)
     except KeyError as exc:
         raise web.HTTPBadRequest(reason=f"The state '{state}' is not valid") from exc
 
