@@ -110,21 +110,23 @@ async def test_post_runfolders_path(client, config, runfolder):
     url = f"/api/1.0/runfolders/path{runfolder['path']}"
     # url should not have two '/' after combining the static and dynamic parts
     assert not re.search(r'runfolders/path//', url)
+    states = ["started", "STARTED"]
 
-    async with client.request(
-        "POST", url, json={"state": "STARTED"}
-    ) as resp:
-        assert resp.status == 200
+    for state in states:
+        async with client.request(
+            "POST", url, json={"state": state}
+        ) as resp:
+            assert resp.status == 200
 
-        state = runfolder.get('path') / ".arteria/state"
-        assert state.read_text() == State.STARTED.value
+            state = runfolder.get('path') / ".arteria/state"
+            assert state.read_text() == State.STARTED.value
 
-        state_control = (
-            Path(config["monitored_directories"][0])
-            / runfolder['path'].name
-            / ".arteria/state"
-        )
-        assert state_control.read_text() == State.DONE.value
+            state_control = (
+                Path(config["monitored_directories"][0])
+                / runfolder['path'].name
+                / ".arteria/state"
+            )
+            assert state_control.read_text() == State.DONE.value
 
 
 @pytest.mark.parametrize("runfolder", [{"state": State.READY.name}], indirect=True)
@@ -148,7 +150,7 @@ async def test_post_runfolders_path_missing_runfolder(client, config, runfolder)
                     "200624_A00834_0183_FAKE_RUNFOLDER"
                 }'
             ),
-            json={"state": "STARTED"}
+            json={"state": "started"}
     ) as resp:
 
         assert resp.status == 404
@@ -160,7 +162,7 @@ async def test_post_runfolder_unmonitored_dir(client, config, runfolder):
     runfolder_name = runfolder["path"].name
     async with client.request(
         "POST", f"/api/1.0/runfolders/path/tmp/unmonitored_path/{runfolder_name}",
-        json={"state": "STARTED"},
+        json={"state": "started"},
     ) as resp:
         assert resp.status == 400
 
