@@ -155,7 +155,7 @@ def serialize_runfolder_path(runfolder_cls, request):
     runfolder_dict = runfolder_cls.to_dict()
     runfolder_dict['service_version'] = __version__
     runfolder_path = Path(runfolder_dict['path'])
-    runfolder_dict['path'] = runfolder_path.as_uri()
+    runfolder_dict['path'] = runfolder_path.as_posix()
     runfolder_dict['host'], runfolder_dict['link'] = get_host_link(request, runfolder_path)
 
     return runfolder_dict
