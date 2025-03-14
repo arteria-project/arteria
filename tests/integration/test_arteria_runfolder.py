@@ -89,7 +89,7 @@ def get_expected_runfolder(runfolder, resp, state=None):
             f"/api/1.0/runfolders/path{runfolder["path"]}"
         )
     runfolder['state'] = state if state else runfolder['state']
-    runfolder['path'] = str(runfolder['path'])
+    runfolder['path'] = runfolder['path'].as_posix()
 
     return runfolder
 
